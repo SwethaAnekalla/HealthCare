@@ -357,4 +357,3 @@ This project is provided as-is for educational and commercial purposes.
 
 ---
 
-**Built with ❤️ by Kiro**
