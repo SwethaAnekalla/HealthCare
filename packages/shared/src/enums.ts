@@ -1,0 +1,166 @@
+// User & Authentication
+export enum UserRole {
+  GUEST = 'GUEST',
+  PATIENT = 'PATIENT',
+  DOCTOR = 'DOCTOR',
+  CLINIC_STAFF = 'CLINIC_STAFF',
+  SUPPORT_AGENT = 'SUPPORT_AGENT',
+  ADMIN = 'ADMIN',
+}
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  DELETED = 'DELETED',
+}
+
+// Doctor Status (Unique Feature 1)
+export enum DoctorStatusType {
+  AVAILABLE = 'AVAILABLE',
+  RUNNING_LATE = 'RUNNING_LATE',
+  ON_BREAK = 'ON_BREAK',
+  IN_SURGERY = 'IN_SURGERY',
+  ON_LEAVE = 'ON_LEAVE',
+  UNAVAILABLE_TODAY = 'UNAVAILABLE_TODAY',
+  OFFLINE = 'OFFLINE',
+}
+
+// Appointments
+export enum AppointmentStatus {
+  BOOKED = 'BOOKED',
+  CONFIRMED = 'CONFIRMED',
+  CHECKED_IN = 'CHECKED_IN',
+  IN_CONSULTATION = 'IN_CONSULTATION',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  RESCHEDULED = 'RESCHEDULED',
+  NO_SHOW = 'NO_SHOW',
+  FAILED = 'FAILED',
+}
+
+export enum ConsultationMode {
+  IN_CLINIC = 'IN_CLINIC',
+  VIDEO = 'VIDEO',
+  PHONE = 'PHONE',
+  HOME_VISIT = 'HOME_VISIT',
+}
+
+// Refunds (Unique Feature 2)
+export enum RefundStatus {
+  REQUESTED = 'REQUESTED',
+  APPROVED = 'APPROVED',
+  PROCESSING = 'PROCESSING',
+  CREDITED = 'CREDITED',
+  REJECTED = 'REJECTED',
+  FAILED = 'FAILED',
+}
+
+export enum RefundDestination {
+  ORIGINAL_PAYMENT_METHOD = 'ORIGINAL_PAYMENT_METHOD',
+  WALLET = 'WALLET',
+}
+
+// Payments
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  REFUNDED = 'REFUNDED',
+}
+
+// Support (Unique Feature 3)
+export enum TicketStatus {
+  BOT = 'BOT',
+  WAITING_FOR_AGENT = 'WAITING_FOR_AGENT',
+  WITH_AGENT = 'WITH_AGENT',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+}
+
+export enum TicketPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  URGENT = 'URGENT',
+}
+
+export enum TicketCategory {
+  APPOINTMENT = 'APPOINTMENT',
+  PAYMENT = 'PAYMENT',
+  REFUND = 'REFUND',
+  TECHNICAL = 'TECHNICAL',
+  BILLING = 'BILLING',
+  OTHER = 'OTHER',
+}
+
+export enum MessageSenderType {
+  USER = 'USER',
+  BOT = 'BOT',
+  AGENT = 'AGENT',
+}
+
+// Queue (Unique Feature 6)
+export enum QueueTokenStatus {
+  ISSUED = 'ISSUED',
+  IN_QUEUE = 'IN_QUEUE',
+  CALLED = 'CALLED',
+  IN_CONSULTATION = 'IN_CONSULTATION',
+  COMPLETED = 'COMPLETED',
+  NO_SHOW = 'NO_SHOW',
+  SKIPPED = 'SKIPPED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum CheckInType {
+  ON_SITE = 'ON_SITE',
+  REMOTE = 'REMOTE',
+  GEOFENCE = 'GEOFENCE',
+  QR_CODE = 'QR_CODE',
+}
+
+// Pricing & Disputes (Unique Feature 5)
+export enum PriceDisputeStatus {
+  OPEN = 'OPEN',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  REFUNDED = 'REFUNDED',
+  CLOSED = 'CLOSED',
+}
+
+// Notifications
+export enum NotificationChannel {
+  IN_APP = 'IN_APP',
+  PUSH = 'PUSH',
+  EMAIL = 'EMAIL',
+  SMS = 'SMS',
+}
+
+export enum NotificationType {
+  APPOINTMENT_CONFIRMATION = 'APPOINTMENT_CONFIRMATION',
+  APPOINTMENT_REMINDER = 'APPOINTMENT_REMINDER',
+  DOCTOR_STATUS_CHANGED = 'DOCTOR_STATUS_CHANGED',
+  REFUND_STATUS_UPDATED = 'REFUND_STATUS_UPDATED',
+  QUEUE_POSITION_UPDATED = 'QUEUE_POSITION_UPDATED',
+  QUEUE_ALERT = 'QUEUE_ALERT',
+  SUPPORT_TICKET_UPDATED = 'SUPPORT_TICKET_UPDATED',
+  PRESCRIPTION_READY = 'PRESCRIPTION_READY',
+  REVIEW_REMINDER = 'REVIEW_REMINDER',
+  PRICE_DISPUTE_OUTCOME = 'PRICE_DISPUTE_OUTCOME',
+}
+
+// Clinic Verification
+export enum ClinicVerificationStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  SUSPENDED = 'SUSPENDED',
+}
+
+export enum DoctorVerificationStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  SUSPENDED = 'SUSPENDED',
+}

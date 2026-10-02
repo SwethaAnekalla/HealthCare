@@ -1,0 +1,972 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== USER & AUTH =====
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  phone     String   @unique
+  name      String
+  passwordHash String
+  role      String   // UserRole enum
+  status    String   @default("ACTIVE") // UserStatus enum
+  emailVerified Boolean @default(false)
+  emailVerificationToken String?
+  emailVerificationTokenExpiresAt DateTime?
+  passwordResetToken String?
+  passwordResetTokenExpiresAt DateTime?
+  lastLoginAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  patientProfile PatientProfile?
+  doctorProfile DoctorProfile?
+  clinicStaff ClinicStaff?
+  supportAgent SupportAgent?
+
+  // Appointments
+  appointmentsAsPatient Appointment[] @relation("PatientAppointment")
+  appointmentsAsDoctor Appointment[] @relation("DoctorAppointment")
+
+  // Doctor Status
+  doctorStatuses DoctorStatus[] @relation("DoctorStatusSetBy")
+  doctorStatusesManaged DoctorStatus[] @relation("DoctorStatusManagedBy")
+
+  // Support
+  supportTickets SupportTicket[] @relation("TicketCreatedBy")
+  assignedTickets SupportTicket[] @relation("TicketAssignedAgent")
+  chatMessages ChatMessage[] @relation("ChatMessageSender")
+  // Fees & Disputes
+  feesChangedBy Fee[] @relation("FeeChangedBy")
+  priceDisputesReportedBy PriceDispute[] @relation("DisputeReportedBy")
+
+  // Refunds
+  refundsRejectedBy Refund[] @relation("RefundRejectedBy")
+  refundEventsCreatedBy RefundEvent[] @relation("RefundEventCreatedBy")
+
+  // Wallet
+  wallet Wallet?
+
+  // Audit
+  auditLogs AuditLog[] @relation("AuditLogUser")
+  // Fee History
+  feeHistoriesChangedBy FeeHistory[] @relation("FeeHistoryChangedBy")
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+  @@index([status])
+}
+
+// ===== PATIENT PROFILE =====
+model PatientProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  bloodGroup String?
+  allergies String? // JSON array stored as text
+  medicalConditions String? // JSON array
+  emergencyContact String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Family members
+  familyMembers FamilyMember[]
+
+  // Medical records
+  healthRecords HealthRecord[]
+
+  // Appointments
+  appointments Appointment[]
+
+  // Wallet
+  @@index([userId])
+}
+
+model FamilyMember {
+  id        String   @id @default(cuid())
+  patientId String
+  name      String
+  relationship String
+  age       Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  appointments Appointment[]
+
+  @@index([patientId])
+}
+
+model HealthRecord {
+  id        String   @id @default(cuid())
+  patientId String
+  title     String
+  description String?
+  fileUrl   String
+  fileType  String
+  uploadedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+}
+
+// ===== DOCTOR PROFILE =====
+model DoctorProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  registrationNumber String @unique
+  experience Int // in years
+  bio       String?
+  languages String? // JSON array
+  qualifications String? // JSON array
+  consultationFee Int // in paise
+  verificationStatus String @default("PENDING")
+  rating    Float @default(0)
+  reviewCount Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Clinics
+  clinicDoctors ClinicDoctor[]
+
+  // Specialties
+  doctorSpecialties DoctorSpecialty[]
+
+  // Schedules
+  schedules DoctorSchedule[]
+
+  // Time Slots
+  timeSlots TimeSlot[]
+
+  // Leaves
+  leaves DoctorLeave[]
+
+  // Status
+  currentStatus DoctorStatus?
+  // Appointments
+  appointments Appointment[] @relation("DoctorAppointments")
+
+  // Fees
+  fees Fee[]
+
+  // Queue
+  queueSessions QueueSession[]
+
+  // Pace metrics
+  paceMetrics DoctorPaceMetric[]
+
+  @@index([userId])
+  @@index([registrationNumber])
+  @@index([verificationStatus])
+}
+
+model DoctorSpecialty {
+  id        String   @id @default(cuid())
+  doctorId  String
+  specialtyId String
+  createdAt DateTime @default(now())
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, specialtyId])
+  @@index([doctorId])
+  @@index([specialtyId])
+}
+
+// ===== CLINIC & STAFF =====
+model Clinic {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  city      String
+  state     String
+  pinCode   String
+  latitude  Float
+  longitude Float
+  phone     String
+  email     String
+  website   String?
+  verificationStatus String @default("PENDING")
+  trustScore Float @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Doctors
+  clinicDoctors ClinicDoctor[]
+  staff ClinicStaff[]
+
+  // Appointments
+  appointments Appointment[]
+
+  // Time Slots
+  timeSlots TimeSlot[]
+
+  // Fees
+  fees Fee[]
+
+  // Queue
+  queueSessions QueueSession[]
+
+  @@index([city])
+  @@index([verificationStatus])
+}
+
+model ClinicDoctor {
+  id        String   @id @default(cuid())
+  clinicId  String
+  doctorId  String
+  isPrimary Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, doctorId])
+  @@index([clinicId])
+  @@index([doctorId])
+}
+
+model ClinicStaff {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  clinicId  String
+  role      String   // RECEPTIONIST, MANAGER, etc.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId])
+  @@index([userId])
+}
+
+// ===== SPECIALTIES & SYMPTOMS =====
+model Specialty {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  description String?
+  icon      String?
+  parentId  String?
+  isRare    Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent Specialty? @relation("ParentSpecialty", fields: [parentId], references: [id], onDelete: SetNull)
+  children Specialty[] @relation("ParentSpecialty")
+
+  // Relations
+  doctorSpecialties DoctorSpecialty[]
+  synonyms SpecialtySynonym[]
+  symptomMaps SymptomSpecialtyMap[]
+
+  @@index([parentId])
+}
+
+model SpecialtySynonym {
+  id        String   @id @default(cuid())
+  specialtyId String
+  synonym   String   @unique
+  createdAt DateTime @default(now())
+
+  specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@index([specialtyId])
+  @@index([synonym])
+}
+
+model Symptom {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  description String?
+  isRedFlag Boolean @default(false)
+  redFlagGuidance String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  specialtyMaps SymptomSpecialtyMap[]
+  matchLogs SymptomMatchLog[]
+}
+
+model SymptomSpecialtyMap {
+  id        String   @id @default(cuid())
+  symptomId String
+  specialtyId String
+  weight    Float @default(1.0) // confidence 0-1
+  reason    String? // explanation for the mapping
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  symptom Symptom @relation(fields: [symptomId], references: [id], onDelete: Cascade)
+  specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@unique([symptomId, specialtyId])
+  @@index([symptomId])
+  @@index([specialtyId])
+}
+
+// ===== DOCTOR STATUS (Unique Feature 1) =====
+model DoctorStatus {
+  id        String   @id @default(cuid())
+  doctorId  String   @unique
+  status    String   // DoctorStatusType enum
+  delayMinutes Int?
+  reason    String?
+  leaveStartDate DateTime?
+  leaveEndDate DateTime?
+  setByUserId String
+  managedByUserId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  setByUser User @relation("DoctorStatusSetBy", fields: [setByUserId], references: [id])
+  managedByUser User? @relation("DoctorStatusManagedBy", fields: [managedByUserId], references: [id])
+  @@index([doctorId])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model DoctorStatusHistory {
+  id        String   @id @default(cuid())
+  doctorId  String
+  status    String
+  delayMinutes Int?
+  reason    String?
+  leaveStartDate DateTime?
+  leaveEndDate DateTime?
+  setByUserId String
+  createdAt DateTime @default(now())
+
+  @@index([doctorId])
+  @@index([createdAt])
+}
+
+// ===== SCHEDULES & AVAILABILITY =====
+model DoctorSchedule {
+  id        String   @id @default(cuid())
+  doctorId  String
+  dayOfWeek Int     // 0=Sunday, 6=Saturday
+  startTime String  // HH:mm format
+  endTime   String
+  slotDuration Int // in minutes
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, dayOfWeek])
+  @@index([doctorId])
+}
+
+model TimeSlot {
+  id        String   @id @default(cuid())
+  doctorId  String
+  clinicId  String
+  startTime DateTime
+  endTime   DateTime
+  status    String   @default("AVAILABLE") // AVAILABLE, BOOKED, BLOCKED, HELD
+  holdExpiresAt DateTime?
+  version   Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation("SlotAppointment")
+
+  @@unique([doctorId, clinicId, startTime])
+  @@index([doctorId])
+  @@index([clinicId])
+  @@index([status])
+  @@index([startTime])
+}
+
+model DoctorLeave {
+  id        String   @id @default(cuid())
+  doctorId  String
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@index([startDate])
+}
+
+// ===== APPOINTMENTS =====
+model Appointment {
+  id        String   @id @default(cuid())
+  patientUserId String
+  patientId String
+  familyMemberId String?
+  doctorUserId String
+  doctorId  String
+  clinicId  String
+  slotId    String   @unique
+  status    String   @default("BOOKED") // AppointmentStatus enum
+  consultationMode String // ConsultationMode enum
+  reason    String
+  symptoms  String? // JSON array
+  scheduledStart DateTime
+  scheduledEnd DateTime
+  actualStart DateTime?
+  actualEnd DateTime?
+  lockedFee Int  // in paise
+  feeVersion Int
+  lockedAt  DateTime
+  paymentId String?
+  refundId  String?
+  prescriptionId String?
+  consultationNotes String?
+  cancelledBy String?
+  cancellationReason String?
+  cancellationTimestamp DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  patientUser User @relation("PatientAppointment", fields: [patientUserId], references: [id])
+  patient PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorUser User @relation("DoctorAppointment", fields: [doctorUserId], references: [id])
+  doctorProfile DoctorProfile @relation("DoctorAppointments", fields: [doctorId], references: [id])
+  clinic Clinic @relation(fields: [clinicId], references: [id])
+  slot TimeSlot @relation("SlotAppointment", fields: [slotId], references: [id])
+
+  // For family members
+  familyMember FamilyMember? @relation(fields: [familyMemberId], references: [id], onDelete: SetNull)
+
+  // Payment
+  payment Payment?
+
+  // Refund
+  refund Refund? @relation("AppointmentRefund")
+
+  // Prescription
+  prescription Prescription? @relation("AppointmentPrescription")
+
+  // Reviews
+  review Review?
+
+  // Queue
+  queueToken QueueToken?
+
+  // Disputes
+  priceDispute PriceDispute?
+
+  // Support tickets
+  supportTickets SupportTicket[] @relation("TicketAppointment")
+
+  @@index([patientUserId])
+  @@index([doctorUserId])
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([clinicId])
+  @@index([status])
+  @@index([scheduledStart])
+}
+
+// ===== PAYMENTS =====
+model Payment {
+  id        String   @id @default(cuid())
+  appointmentId String @unique
+  amount    Int     // in paise
+  status    String @default("PENDING") // PaymentStatus enum
+  paymentMethod String?
+  providerReference String?
+  idempotencyKey String @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  refund Refund? @relation("PaymentRefund")
+
+  @@index([appointmentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ===== WALLET & TRANSACTIONS =====
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Int @default(0) // in paise
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  transactions WalletTransaction[]
+
+  @@index([userId])
+}
+
+model WalletTransaction {
+  id        String   @id @default(cuid())
+  walletId  String
+  type      String   // CREDIT, DEBIT
+  amount    Int     // in paise
+  reason    String
+  reference String  // refundId, appointmentId, etc.
+  createdAt DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([createdAt])
+}
+
+// ===== REFUNDS (Unique Feature 2) =====
+model Refund {
+  id        String   @id @default(cuid())
+  appointmentId String @unique
+  paymentId String   @unique
+  amount    Int     // in paise
+  status    String @default("REQUESTED") // RefundStatus enum
+  destination String @default("WALLET") // ORIGINAL_PAYMENT_METHOD, WALLET
+  providerReference String?
+  requestedAt DateTime @default(now())
+  approvedAt DateTime?
+  processedAt DateTime?
+  creditedAt DateTime?
+  failureReason String?
+  slaExpectedAt DateTime
+  slaBreached Boolean @default(false)
+  rejectedBy String?
+  rejectionReason String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment Appointment @relation("AppointmentRefund", fields: [appointmentId], references: [id], onDelete: Cascade)
+  payment Payment @relation("PaymentRefund", fields: [paymentId], references: [id])
+
+  events RefundEvent[]
+
+  rejectedByUser User? @relation("RefundRejectedBy", fields: [rejectedBy], references: [id])
+
+  @@index([appointmentId])
+  @@index([status])
+  @@index([slaBreached])
+  @@index([createdAt])
+}
+
+model RefundEvent {
+  id        String   @id @default(cuid())
+  refundId  String
+  status    String
+  message   String
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  refund Refund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  createdByUser User? @relation("RefundEventCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([refundId])
+  @@index([createdAt])
+}
+
+// ===== SUPPORT & CHAT (Unique Feature 3) =====
+model SupportAgent {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  activeTicketCount Int @default(0)
+  isOnline  Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isOnline])
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  createdByUserId String
+  assignedAgentUserId String?
+  status    String @default("BOT") // TicketStatus enum
+  priority  String @default("MEDIUM") // TicketPriority enum
+  category  String @default("OTHER") // TicketCategory enum
+  linkedAppointmentId String?
+  linkedRefundId String?
+  conversationId String @unique
+  firstResponseAt DateTime?
+  resolvedAt DateTime?
+  closedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdByUser User @relation("TicketCreatedBy", fields: [createdByUserId], references: [id])
+  assignedAgent User? @relation("TicketAssignedAgent", fields: [assignedAgentUserId], references: [id])
+  linkedAppointment Appointment? @relation("TicketAppointment", fields: [linkedAppointmentId], references: [id])
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id])
+  csatRating CsatRating?
+
+  @@index([createdByUserId])
+  @@index([assignedAgentUserId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model ChatConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ChatMessage[]
+  ticket SupportTicket?
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  conversationId String
+  senderId  String
+  senderType String // USER, BOT, AGENT
+  message   String
+  attachmentUrls String? // JSON array
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender User @relation("ChatMessageSender", fields: [senderId], references: [id])
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model CannedResponse {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  category  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+model CsatRating {
+  id        String   @id @default(cuid())
+  ticketId  String   @unique
+  rating    Int     // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([rating])
+}
+
+// ===== QUEUE (Unique Feature 6) =====
+model QueueSession {
+  id        String   @id @default(cuid())
+  doctorId  String
+  clinicId  String
+  date      String   // YYYY-MM-DD
+  status    String @default("ACTIVE") // ACTIVE, PAUSED, CLOSED
+  totalTokensIssued Int @default(0)
+  currentTokenNumber Int?
+  averageConsultationDuration Int @default(0) // in seconds
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id])
+  tokens QueueToken[]
+
+  @@unique([doctorId, clinicId, date])
+  @@index([doctorId])
+  @@index([clinicId])
+  @@index([date])
+}
+
+model QueueToken {
+  id        String   @id @default(cuid())
+  appointmentId String @unique
+  sessionId String
+  session QueueSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tokenNumber Int
+  status    String @default("ISSUED") // QueueTokenStatus enum
+  checkInType String?
+  checkInTime DateTime?
+  position  Int?
+  startConsultationTime DateTime?
+  endConsultationTime DateTime?
+  noShowGracePeriodExpiresAt DateTime?
+  alertedAt String? // JSON array of timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  @@index([tokenNumber])
+  @@index([status])
+  @@index([checkInTime])
+}
+
+model DoctorPaceMetric {
+  id        String   @id @default(cuid())
+  doctorId  String
+  date      String   // YYYY-MM-DD
+  consultationDuration Int // in seconds
+  createdAt DateTime @default(now())
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@index([date])
+}
+
+// ===== PRICING & DISPUTES (Unique Feature 5) =====
+model Fee {
+  id        String   @id @default(cuid())
+  doctorId  String   @unique
+  clinicId  String
+  amount    Int     // in paise
+  version   Int @default(1)
+  effectiveFrom DateTime
+  changedBy String?
+  changedByUser User? @relation("FeeChangedBy", fields: [changedBy], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  clinic Clinic @relation(fields: [clinicId], references: [id])
+
+  history FeeHistory[]
+
+  @@unique([doctorId, clinicId])
+
+  @@index([doctorId])
+  @@index([clinicId])
+}
+
+model FeeHistory {
+  id        String   @id @default(cuid())
+  feeId     String
+  doctorId  String
+  clinicId  String
+  amount    Int
+  version   Int
+  changedBy String?
+  changedByUser User? @relation("FeeHistoryChangedBy", fields: [changedBy], references: [id])
+  changedAt DateTime @default(now())
+
+  fee Fee @relation(fields: [feeId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@index([clinicId])
+  @@index([changedAt])
+}
+
+model PriceDispute {
+  id        String   @id @default(cuid())
+  appointmentId String @unique
+  reportedByUserId String
+  lockedFee Int
+  claimedAmount Int
+  status    String @default("OPEN") // PriceDisputeStatus enum
+  evidenceUrls String? // JSON array
+  description String
+  resolution String?
+  refundAmount Int?
+  refundId  String?
+  clinicPenaltyApplied Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  reportedByUser User @relation("DisputeReportedBy", fields: [reportedByUserId], references: [id])
+
+  @@index([reportedByUserId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ===== PRESCRIPTIONS & REVIEWS =====
+model Prescription {
+  id        String   @id @default(cuid())
+  appointmentId String @unique
+  doctorUserId String
+  patientUserId String
+  notes     String
+  items     PrescriptionItem[]
+  issuedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment Appointment @relation("AppointmentPrescription", fields: [appointmentId], references: [id])
+
+  @@index([appointmentId])
+  @@index([doctorUserId])
+  @@index([patientUserId])
+}
+
+model PrescriptionItem {
+  id        String   @id @default(cuid())
+  prescriptionId String
+  medication String
+  dosage    String
+  frequency String
+  duration  String
+  instructions String?
+  createdAt DateTime @default(now())
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  appointmentId String @unique
+  doctorUserId String
+  patientUserId String
+  rating    Int     // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  @@index([doctorUserId])
+  @@index([patientUserId])
+  @@index([rating])
+}
+
+// ===== NOTIFICATIONS =====
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // NotificationType enum
+  title     String
+  message   String
+  data      String?  // JSON
+  channels  String? // JSON array
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([readAt])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  inAppEnabled Boolean @default(true)
+  pushEnabled Boolean @default(true)
+  emailEnabled Boolean @default(true)
+  smsEnabled Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String
+  auth      String
+  p256dh    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+}
+
+// ===== SYMPTOM MATCHING LOGS =====
+model SymptomMatchLog {
+  id        String   @id @default(cuid())
+  symptomId String?
+  queryText String
+  matched   Boolean
+  resultCount Int?
+  createdAt DateTime @default(now())
+
+  symptom Symptom? @relation(fields: [symptomId], references: [id], onDelete: SetNull)
+
+  @@index([symptomId])
+  @@index([matched])
+  @@index([createdAt])
+}
+
+// ===== AUDIT LOGS =====
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  resource  String
+  resourceId String?
+  changes   String?  // JSON
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation("AuditLogUser", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([resource])
+  @@index([createdAt])
+}
+
+// ===== CMS =====
+model CmsContent {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  title     String
+  content   String
+  type      String   // FAQ, BANNER, GUARANTEE, etc.
+  isPublished Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([type])
+}
+
+// ===== SETTINGS =====
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  type      String   // STRING, INT, BOOLEAN, JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}

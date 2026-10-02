@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.local
+.DS_Store
+*.swp
+*.swo
+.vscode/settings.json
+.idea/
+coverage/
+.next/
+out/
+.turbo/
+.pnpm-store/
